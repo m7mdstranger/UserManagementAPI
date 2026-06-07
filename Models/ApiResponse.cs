@@ -1,48 +1,61 @@
-namespace UserManagementAPI.Models
+namespace UserManagementAPI.Models;
+
+public class ApiResponse<T>
 {
-    public class ApiResponse<T>
+    public int StatusCode { get; set; }
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public T? Data { get; set; }
+
+    public static ApiResponse<T> SuccessResponse(T data, string message = "Operation completed successfully", int statusCode = 200)
     {
-        public bool Success { get; set; }
-        public string Message { get; set; }
-        public T Data { get; set; }
-
-        public ApiResponse(bool success, string message, T data = default)
+        return new ApiResponse<T>
         {
-            Success = success;
-            Message = message;
-            Data = data;
-        }
-
-        public static ApiResponse<T> SuccessResponse(string message, T data = default)
-        {
-            return new ApiResponse<T>(true, message, data);
-        }
-
-        public static ApiResponse<T> FailResponse(string message)
-        {
-            return new ApiResponse<T>(false, message);
-        }
+            StatusCode = statusCode,
+            Success = true,
+            Message = message,
+            Data = data
+        };
     }
 
-    public class ApiResponse
+    public static ApiResponse<T> ErrorResponse(string message, int statusCode = 500, T? data = default)
     {
-        public bool Success { get; set; }
-        public string Message { get; set; }
-
-        public ApiResponse(bool success, string message)
+        return new ApiResponse<T>
         {
-            Success = success;
-            Message = message;
-        }
+            StatusCode = statusCode,
+            Success = false,
+            Message = message,
+            Data = data
+        };
+    }
+}
 
-        public static ApiResponse SuccessResponse(string message)
-        {
-            return new ApiResponse(true, message);
-        }
+public class ApiResponse
+{
+    public int StatusCode { get; set; }
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public object? Data { get; set; }
 
-        public static ApiResponse FailResponse(string message)
+    public static ApiResponse SuccessResponse(object? data = null, string message = "Operation completed successfully", int statusCode = 200)
+    {
+        return new ApiResponse
         {
-            return new ApiResponse(false, message);
-        }
+            StatusCode = statusCode,
+            Success = true,
+            Message = message,
+            Data = data
+        };
+    }
+
+    public static ApiResponse ErrorResponse(string message, int statusCode = 500, object? data = null)
+    {
+        return new ApiResponse
+        {
+            StatusCode = statusCode,
+            Success = false,
+            Message = message,
+            Data = data
+        };
     }
 }

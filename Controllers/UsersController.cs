@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ namespace UserManagementAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]  // Add this to require authentication
     public class UsersController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -46,7 +48,7 @@ namespace UserManagementAPI.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(ApiResponse<List<UserDto>>.SuccessResponse("Users retrieved successfully", users));
+            return Ok(ApiResponse<List<UserDto>>.SuccessResponse(users, "Users retrieved successfully"));
         }
 
         // GET: api/Users/5
@@ -77,7 +79,7 @@ namespace UserManagementAPI.Controllers
                 Created = user.Created
             };
 
-            return Ok(ApiResponse<UserDto>.SuccessResponse("User retrieved successfully", userDto));
+            return Ok(ApiResponse<UserDto>.SuccessResponse(userDto, "User retrieved successfully"));
         }
 
         // PUT: api/Users/5
@@ -161,7 +163,7 @@ namespace UserManagementAPI.Controllers
             };
 
             return CreatedAtAction("GetUser", new { id = user.Id },
-                ApiResponse<UserDto>.SuccessResponse("User created successfully", userDto));
+                ApiResponse<UserDto>.SuccessResponse(userDto, "User created successfully", StatusCodes.Status201Created));
         }
 
         // DELETE: api/Users/5

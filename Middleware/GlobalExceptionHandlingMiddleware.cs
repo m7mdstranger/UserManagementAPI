@@ -33,51 +33,34 @@ namespace UserManagementAPI.Middleware
         {
             context.Response.ContentType = "application/json";
 
-            var response = new ErrorResponse();
-
-            switch (exception)
+            var response = exception switch
             {
-                case ValidationException validationEx:
-                    context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                    response = new ErrorResponse
-                    {
-                        StatusCode = StatusCodes.Status400BadRequest,
-                        Message = "Validation failed",
-                        Errors = validationEx.Errors
-                    };
-                    break;
+                ValidationException validationEx => new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "Validation failed",
+                    Errors = validationEx.Errors
+                },
+                NotFoundException notFoundEx => new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status404NotFound,
+                    Message = notFoundEx.Message
+                },
+                DbUpdateException dbEx => new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "Database constraint violation",
+                    Errors = new List<string> { dbEx.InnerException?.Message ?? dbEx.Message }
+                },
+                _ => new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status500InternalServerError,
+                    Message = "An unexpected error occurred",
+                    Errors = new List<string> { exception.Message }
+                }
+            };
 
-                case NotFoundException notFoundEx:
-                    context.Response.StatusCode = StatusCodes.Status404NotFound;
-                    response = new ErrorResponse
-                    {
-                        StatusCode = StatusCodes.Status404NotFound,
-                        Message = notFoundEx.Message,
-                        Errors = new List<string> { notFoundEx.Message }
-                    };
-                    break;
-
-                case DbUpdateException dbEx:
-                    context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                    response = new ErrorResponse
-                    {
-                        StatusCode = StatusCodes.Status400BadRequest,
-                        Message = "Database constraint violation",
-                        Errors = new List<string> { dbEx.InnerException?.Message ?? dbEx.Message }
-                    };
-                    break;
-
-                default:
-                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                    response = new ErrorResponse
-                    {
-                        StatusCode = StatusCodes.Status500InternalServerError,
-                        Message = "An unexpected error occurred",
-                        Errors = new List<string> { exception.Message }
-                    };
-                    break;
-            }
-
+            context.Response.StatusCode = response.StatusCode;
             var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
             var json = JsonSerializer.Serialize(response, options);
             return context.Response.WriteAsync(json);
