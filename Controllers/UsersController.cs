@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UserManagementAPI.Data;
 using UserManagementAPI.Models;
+using UserManagementAPI.Utilities;
+using UserManagementAPI.Exceptions;
 
 namespace UserManagementAPI.Controllers
 {
@@ -21,88 +23,171 @@ namespace UserManagementAPI.Controllers
             _context = context;
         }
 
-        // GET: api/Users
+        // GET: api/Users?pageNumber=1&pageSize=10
         [HttpGet("GetAllUsers")]
-        public async Task<ActionResult<IEnumerable<User>>> Getuser()
+        public async Task<ActionResult<ApiResponse<List<UserDto>>>> GetAllUsers(int pageNumber = 1, int pageSize = 10)
         {
-            return await _context.user.ToListAsync();
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 10;
+            if (pageSize > 100) pageSize = 100; // Cap max page size
+
+            var users = await _context.Users
+                .AsNoTracking()
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(u => new UserDto
+                {
+                    Id = u.Id,
+                    Role = u.Role,
+                    FullName = u.FullName,
+                    Email = u.Email,
+                    Department = u.Department,
+                    Created = u.Created
+                })
+                .ToListAsync();
+
+            return Ok(ApiResponse<List<UserDto>>.SuccessResponse("Users retrieved successfully", users));
         }
 
         // GET: api/Users/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<User>> GetUser(Guid id)
+        public async Task<ActionResult<ApiResponse<UserDto>>> GetUser(Guid id)
         {
-            var user = await _context.user.FindAsync(id);
+            if (id == Guid.Empty)
+            {
+                throw new ValidationException("Invalid user ID");
+            }
+
+            var user = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user == null)
             {
-                return NotFound();
+                throw new NotFoundException("User not found");
             }
 
-            return user;
+            var userDto = new UserDto
+            {
+                Id = user.Id,
+                Role = user.Role,
+                FullName = user.FullName,
+                Email = user.Email,
+                Department = user.Department,
+                Created = user.Created
+            };
+
+            return Ok(ApiResponse<UserDto>.SuccessResponse("User retrieved successfully", userDto));
         }
 
         // PUT: api/Users/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutUser(Guid id, [FromForm]User user)
+        public async Task<IActionResult> PutUser(Guid id, [FromForm] UpdateUserDto updateUserDto)
         {
-            if (id != user.Id)
+            if (id == Guid.Empty)
             {
-                return BadRequest();
+                throw new ValidationException("Invalid user ID");
             }
 
-            _context.Entry(user).State = EntityState.Modified;
-
-            try
+            if (updateUserDto == null)
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!UserExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                throw new ValidationException("User data is required");
             }
 
-            return NoContent();
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors.Select(e => e.ErrorMessage))
+                    .ToList();
+                throw new ValidationException(errors);
+            }
+
+            // Validate password
+            PasswordValidator.Validate(updateUserDto.PasswordHash);
+
+            var existingUser = await _context.Users.FindAsync(id);
+            if (existingUser == null)
+            {
+                throw new NotFoundException("User not found");
+            }
+
+            // Map DTO to entity
+            existingUser.Role = updateUserDto.Role;
+            existingUser.FullName = updateUserDto.FullName;
+            existingUser.Email = updateUserDto.Email;
+            existingUser.PasswordHash = updateUserDto.PasswordHash;
+            existingUser.Department = updateUserDto.Department;
+
+            _context.Entry(existingUser).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+
+            return Ok(ApiResponse.SuccessResponse($"Update user: {id}"));
         }
 
         // POST: api/Users
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost("AddUser")]
-        public async Task<ActionResult<User>> PostUser([FromForm] User user)
+        public async Task<ActionResult<ApiResponse<UserDto>>> PostUser([FromForm] User user)
         {
-            _context.user.Add(user);
+            if (user == null)
+            {
+                throw new ValidationException("User data is required");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors.Select(e => e.ErrorMessage))
+                    .ToList();
+                throw new ValidationException(errors);
+            }
+
+            // Validate password
+            PasswordValidator.Validate(user.PasswordHash);
+
+            user.Id = Guid.NewGuid();
+            user.Created = DateTime.UtcNow;
+
+            _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetUser", new { id = user.Id }, user);
+            var userDto = new UserDto
+            {
+                Id = user.Id,
+                Role = user.Role,
+                FullName = user.FullName,
+                Email = user.Email,
+                Department = user.Department,
+                Created = user.Created
+            };
+
+            return CreatedAtAction("GetUser", new { id = user.Id },
+                ApiResponse<UserDto>.SuccessResponse("User created successfully", userDto));
         }
 
         // DELETE: api/Users/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(Guid id)
         {
-            var user = await _context.user.FindAsync(id);
-            if (user == null)
+            if (id == Guid.Empty)
             {
-                return NotFound();
+                throw new ValidationException("Invalid user ID");
             }
 
-            _context.user.Remove(user);
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+            {
+                throw new NotFoundException("User not found");
+            }
+
+            _context.Users.Remove(user);
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            return Ok(ApiResponse.SuccessResponse($"User with id: {id} is deleted."));
         }
 
         private bool UserExists(Guid id)
         {
-            return _context.user.Any(e => e.Id == id);
+            return _context.Users.Any(e => e.Id == id);
         }
     }
 }

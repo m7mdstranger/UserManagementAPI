@@ -1,12 +1,9 @@
-﻿using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace UserManagementAPI.Models
 {
-    public class User
+    public class UpdateUserDto
     {
-        public Guid Id { get; set; }
-
         [Required(ErrorMessage = "Role is required")]
         [StringLength(50, MinimumLength = 3, ErrorMessage = "Role must be between 3 and 50 characters")]
         public string Role { get; set; }
@@ -26,8 +23,5 @@ namespace UserManagementAPI.Models
 
         [StringLength(50, ErrorMessage = "Department cannot exceed 50 characters")]
         public string Department { get; set; }
-
-        [Required]
-        public DateTime Created { get; set; }
     }
 }
