@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.AspNetCore.Authentication.JwtBearer; // <-- Add this using directive
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Text;
 using UserManagementAPI.Data;
 using UserManagementAPI.Middleware;
@@ -37,10 +37,7 @@ builder.Services.AddAuthentication("Bearer")
     });
 
 builder.Services.AddAuthorization();
-
-// Add JWT Token Service
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
-
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddLogging();

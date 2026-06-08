@@ -18,7 +18,7 @@ namespace UserManagementAPI.Controllers
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequest loginRequest)
+        public IActionResult Login([FromForm] LoginRequest loginRequest)
         {
             try
             {
